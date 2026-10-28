@@ -100,4 +100,5 @@ behandelt. Wiederherstellung reaktiviert weder Homing noch Transformation.
 | Datum | Version | Änderung |
 | --- | --- | --- |
 | 28.10.2026 | 0.1 | Grundstruktur, Punktimport, Schnittstellen und Simulation |
+| 28.10.2026 | 0.2 | Klassische Simulations-GUI, Ablaufzustände und XYZ-Draufsicht |
 

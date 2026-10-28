@@ -20,5 +20,10 @@ Geplant:
 
 ```powershell
 python -m mower.simulation_demo
+python -m mower.ui.app
 ```
+
+Die GUI kennzeichnet den Simulationsmodus dauerhaft. In der XYZ-Draufsicht
+rechts unten zeigt X+ nach oben und Y+ nach links. Der grüne Punkt ist die
+aktuelle XYZ-Position, das orange Fadenkreuz die ausgewählte Zielposition.
 

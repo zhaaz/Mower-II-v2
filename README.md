@@ -15,6 +15,7 @@ denselben Ablauf wahlweise mit realer oder simulierter Hardware ausführen.
 - Konfigurationsdatei für Real-/Simulationsbetrieb
 - Tests und Projektdokumentation
 - reservierte V1-Hotkeys: `Strg+I/T/K/H/A`
+- erste klassische GUI mit fester XYZ-Draufsicht
 
 Die echte Hardware wird erst in einer folgenden, separat prüfbaren Ausbaustufe
 angeschlossen. Der aktuelle Stand sendet keine Befehle an reale Geräte.
@@ -27,6 +28,7 @@ py -3.13 -m venv .venv
 python -m pip install -e .[dev]
 python -m pytest
 python -m mower.simulation_demo
+python -m mower.ui.app
 ```
 
 Weitere Informationen:
