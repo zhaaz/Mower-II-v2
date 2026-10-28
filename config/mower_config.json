@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "mode": "simulation",
+  "hotkeys": {
+    "initialize": "Ctrl+I",
+    "transformation": "Ctrl+T",
+    "offset_calibration": "Ctrl+K",
+    "marker_height": "Ctrl+H",
+    "stakeout": "Ctrl+A"
+  },
+  "simulation": {
+    "random_seed": 1,
+    "tracker_noise_mm": 0.02,
+    "movement_time_scale": 0.0
+  },
+  "xyz": {
+    "workspace_min_mm": [-500.0, -500.0, -250.0],
+    "workspace_max_mm": [500.0, 500.0, 50.0],
+    "axis_directions_confirmed": false
+  },
+  "murata": {
+    "baudrate": 115200,
+    "protocol": "time_us;gyro_z_dps;yaw_raw_deg",
+    "direction_sign": 1.0,
+    "direction_confirmed": false
+  }
+}
+
