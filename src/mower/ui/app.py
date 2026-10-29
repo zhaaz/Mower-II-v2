@@ -115,9 +115,9 @@ class MowerApp(tk.Tk):
         self.body = tk.PanedWindow(self, orient="horizontal", sashwidth=5, bg=self.BG)
         self.body.pack(fill="both", expand=True, padx=8, pady=4)
 
-        left = tk.LabelFrame(body, text="Absteckpunkte", bg=self.PANEL, padx=5, pady=5)
-        center = tk.LabelFrame(body, text="Projektansicht", bg=self.PANEL, padx=5, pady=5)
-        right = tk.Frame(body, bg=self.BG)
+        left = tk.LabelFrame(self.body, text="Absteckpunkte", bg=self.PANEL, padx=5, pady=5)
+        center = tk.LabelFrame(self.body, text="Projektansicht", bg=self.PANEL, padx=5, pady=5)
+        right = tk.Frame(self.body, bg=self.BG)
         self.body.add(left, minsize=220)
         self.body.add(center, minsize=450)
         self.body.add(right, minsize=220)
