@@ -46,3 +46,12 @@ Der Button `Wagen` zoomt auf Wagen und Arbeitsraum. Ein dynamischer
 Maßstabsbalken verwendet abhängig von der Zoomstufe Millimeter, Zentimeter
 oder Meter.
 
+## Virtuelle Transformation
+
+Die Simulation verwaltet eine verborgene wahre Wagenpose. Fünf konfigurierte
+XYZ-Punkte werden in Projektkoordinaten abgebildet und mit reproduzierbarem
+Trackerrauschen versehen. Aus diesen Wertepaaren berechnet V2 eine starre
+Transformation mit Translation und Drehung. Ein Dialog zeigt Einzelmessungen,
+Restabweichungen, RMS, maximale Abweichung und Qualitätsklasse. Wagenpose und
+Erreichbarkeit werden erst nach ausdrücklicher Übernahme freigegeben.
+

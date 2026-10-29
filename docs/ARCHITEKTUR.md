@@ -11,6 +11,10 @@ V2 verwendet eine Ports-und-Adapter-Struktur:
 Damit kann ein Ablauf zuerst vollständig simuliert und danach ohne zweite
 Geschäftslogik an echter Hardware geprüft werden.
 
+Die Konfiguration wird beim Start in typisierte, validierte Datenklassen
+überführt. Transformationsberechnung und Qualitätskennwerte liegen in der
+Anwendungsschicht und sind unabhängig von GUI und Hardware testbar.
+
 ## Sicherheitsgrenze
 
 Der Modus wird beim Programmstart festgelegt. Eine laufende Sitzung darf nicht

@@ -5,10 +5,17 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from mower.application import MowerSystem
+from mower.application.transformation import (
+    simulate_measurements,
+    solve_rigid_transformation,
+)
+from mower.config import load_config
 from mower.domain import Point3D, StakeoutPoint, WagonGeometry, WagonPose
 from mower.domain.point_file import load_points
 from mower.hardware.simulation import SimGyro, SimRotationMotor, SimTracker, SimXYZRobot
 from mower.ui.project_view import ProjectView, format_scale_length, nice_scale_length
+from mower.ui.point_viewer import show_point_viewer
+from mower.ui.transformation_dialog import TransformationDialog
 from mower.ui.xyz_top_view import Viewport, robot_to_screen, workspace_screen_bounds
 
 
@@ -27,21 +34,32 @@ class MowerApp(tk.Tk):
         self._set_initial_geometry()
         self.configure(background=self.BG)
 
+        self.app_config = load_config()
         self.system = MowerSystem(
-            SimXYZRobot(), SimTracker(), SimGyro(), SimRotationMotor()
+            SimXYZRobot(
+                workspace_min=self.app_config.workspace.minimum,
+                workspace_max=self.app_config.workspace.maximum,
+            ),
+            SimTracker(
+                noise_mm=self.app_config.simulation.tracker_noise_mm,
+                seed=self.app_config.simulation.random_seed,
+            ),
+            SimGyro(angle_deg=self.app_config.simulation.true_yaw_deg),
+            SimRotationMotor(),
         )
         self.points: list[StakeoutPoint] = []
         self.target_position: Point3D | None = None
         self.tracker_station = Point3D(0.0, 0.0, 0.0)
         self.robot_project_position: Point3D | None = None
-        self.wagon_geometry = WagonGeometry()
+        self.wagon_geometry = self.app_config.wagon
+        self.simulation_true_pose: WagonPose | None = None
         self.wagon_pose: WagonPose | None = None
         self.project_view = ProjectView()
         self.project_view_fitted = False
         self.project_view_user_adjusted = False
         self.project_pan_anchor: tuple[float, float] | None = None
         self.status_var = tk.StringVar(value="Simulation bereit – System noch nicht initialisiert")
-        self.mode_var = tk.StringVar(value="SIMULATION")
+        self.mode_var = tk.StringVar(value=self.app_config.mode.upper())
         self.workflow_var = tk.StringVar(value="offline")
         self.xyz_var = tk.StringVar(value="X 0.0   Y 0.0   Z 0.0 mm")
         self.tracker_var = tk.StringVar(value="X 0.0   Y 0.0 mm")
@@ -139,19 +157,22 @@ class MowerApp(tk.Tk):
         self.body.add(right, minsize=220)
         self.after_idle(self._set_initial_pane_widths)
 
-        columns = ("x", "y", "z", "status")
+        columns = ("status", "marker")
         self.point_tree = ttk.Treeview(left, columns=columns, show="tree headings")
-        self.point_tree.heading("#0", text="Punkt")
-        self.point_tree.heading("x", text="X")
-        self.point_tree.heading("y", text="Y")
-        self.point_tree.heading("z", text="Z")
+        self.point_tree.heading("#0", text="ID")
         self.point_tree.heading("status", text="Status")
-        self.point_tree.column("#0", width=70)
-        for column in ("x", "y", "z"):
-            self.point_tree.column(column, width=75, anchor="e")
-        self.point_tree.column("status", width=85)
+        self.point_tree.heading("marker", text="Markierung")
+        self.point_tree.column("#0", width=70, stretch=False)
+        self.point_tree.column("status", width=115)
+        self.point_tree.column("marker", width=110)
         self.point_tree.pack(fill="both", expand=True)
         self.point_tree.bind("<<TreeviewSelect>>", self._select_point)
+        self.point_tree.bind("<Double-1>", lambda _event: self.show_selected_point())
+        ttk.Button(
+            left,
+            text="Punktdetails…",
+            command=self.show_selected_point,
+        ).pack(fill="x", pady=(6, 0))
 
         project_toolbar = tk.Frame(center, bg=self.PANEL)
         project_toolbar.pack(fill="x", pady=(0, 4))
@@ -256,7 +277,10 @@ class MowerApp(tk.Tk):
             return
         self._populate_points()
         if self.points:
-            self._place_wagon_center(self.points[0].target)
+            self._place_simulation_true_wagon_center(self.points[0].target)
+            self.wagon_pose = None
+            self.robot_project_position = None
+            self.system.invalidate_transformation()
             self._update_reachability()
         self.project_view_fitted = False
         self.project_view_user_adjusted = False
@@ -267,7 +291,64 @@ class MowerApp(tk.Tk):
         self._run("System initialisiert und XYZ referenziert", self.system.initialize)
 
     def transform(self) -> None:
-        self._run("Simulationstransformation gültig", self.system.perform_transformation)
+        if not self.system.initialized:
+            messagebox.showwarning(
+                "Transformation",
+                "Bitte zuerst das System initialisieren.",
+                parent=self,
+            )
+            return
+        if self.simulation_true_pose is None:
+            messagebox.showwarning(
+                "Transformation",
+                "Bitte zuerst eine Punktdatei laden.",
+                parent=self,
+            )
+            return
+        config = self.app_config.transformation
+        measurements = simulate_measurements(
+            config.calibration_points,
+            self.simulation_true_pose,
+            self.app_config.simulation.tracker_noise_mm,
+            self.app_config.simulation.random_seed,
+        )
+        result = solve_rigid_transformation(measurements)
+        accepted = (
+            result.rms_mm <= config.accepted_rms_mm
+            and result.max_residual_mm <= config.accepted_max_residual_mm
+        )
+        if (
+            result.rms_mm <= config.good_rms_mm
+            and result.max_residual_mm <= config.good_max_residual_mm
+        ):
+            quality = "gut"
+        elif accepted:
+            quality = "akzeptabel"
+        else:
+            quality = "nicht akzeptabel"
+
+        def accept_result() -> None:
+            self.wagon_pose = result.pose
+            self.robot_project_position = result.pose.local_to_project(
+                self.wagon_geometry.center_local
+            )
+            self.system.perform_transformation()
+            self._update_reachability()
+            self._populate_points()
+            self._refresh()
+            self._draw_project()
+            self.status_var.set(
+                f"Transformation übernommen: RMS {result.rms_mm:.3f} mm"
+            )
+
+        TransformationDialog(
+            self,
+            measurements,
+            result,
+            accepted,
+            quality,
+            accept_result,
+        )
 
     def calibrate_offset(self) -> None:
         self._run("Simulierter Marker-/Reflektoroffset kalibriert", self.system.calibrate_offset)
@@ -320,11 +401,16 @@ class MowerApp(tk.Tk):
             )
             return
         point = self.points[int(selected[0])]
-        self._place_wagon_center(point.target)
+        self._place_simulation_true_wagon_center(point.target)
+        self.wagon_pose = None
+        self.robot_project_position = None
+        self.system.invalidate_transformation()
         self._update_reachability()
         self._populate_points(select=int(selected[0]))
         self._draw_project()
-        self.status_var.set(f"Simulierter Wagen auf Punkt {point.name} positioniert")
+        self.status_var.set(
+            f"Wahre Simulationspose auf Punkt {point.name} gesetzt – Transformation erforderlich"
+        )
 
     def emergency_stop(self) -> None:
         self.system.xyz.emergency_stop()
@@ -349,17 +435,16 @@ class MowerApp(tk.Tk):
             local_z=self.wagon_geometry.marking_z_mm,
         )
 
-    def _place_wagon_center(self, center_project: Point3D) -> None:
-        yaw_deg = self.system.gyro.angle_deg
+    def _place_simulation_true_wagon_center(self, center_project: Point3D) -> None:
+        yaw_deg = self.app_config.simulation.true_yaw_deg
         center = self.wagon_geometry.center_local
         center_offset = WagonPose(Point3D(0.0, 0.0, 0.0), yaw_deg).local_to_project(center)
         origin = Point3D(
             center_project.x - center_offset.x,
             center_project.y - center_offset.y,
-            0.0,
+            center_project.z - center_offset.z,
         )
-        self.wagon_pose = WagonPose(origin, yaw_deg)
-        self.robot_project_position = Point3D(center_project.x, center_project.y, center_project.z)
+        self.simulation_true_pose = WagonPose(origin, yaw_deg)
 
     def _update_reachability(self) -> None:
         for point in self.points:
@@ -378,8 +463,8 @@ class MowerApp(tk.Tk):
             self.point_tree.insert(
                 "", "end", iid=str(index), text=point.name,
                 values=(
-                    f"{point.target.x:.3f}", f"{point.target.y:.3f}",
-                    f"{point.target.z:.3f}", self._point_status(point),
+                    self._point_status(point),
+                    f"{point.marker_code} / {point.marker_shape}",
                 ),
             )
         if select is not None and str(select) in self.point_tree.get_children():
@@ -387,15 +472,36 @@ class MowerApp(tk.Tk):
 
     def _select_point(self, _event: tk.Event[tk.Misc]) -> None:
         selected = self.point_tree.selection()
-        if selected:
+        if selected and self.wagon_pose is not None:
             self.target_position = self._project_to_robot(self.points[int(selected[0])])
+        elif selected:
+            self.target_position = None
         self._draw_xyz()
         self._draw_project()
 
-    @staticmethod
-    def _point_status(point: StakeoutPoint) -> str:
+    def show_selected_point(self) -> None:
+        selected = self.point_tree.selection()
+        if not selected:
+            messagebox.showinfo(
+                "Punktdetails",
+                "Bitte zuerst einen Punkt auswählen.",
+                parent=self,
+            )
+            return
+        point = self.points[int(selected[0])]
+        local = self._project_to_robot(point) if self.wagon_pose is not None else None
+        show_point_viewer(
+            self,
+            point,
+            local,
+            transformation_valid=self.wagon_pose is not None,
+        )
+
+    def _point_status(self, point: StakeoutPoint) -> str:
         if point.marking_state.value == "complete":
             return "markiert"
+        if self.wagon_pose is None:
+            return "Trafo fehlt"
         return "erreichbar" if point.reachable else "außer Reichw."
 
     def _refresh(self) -> None:

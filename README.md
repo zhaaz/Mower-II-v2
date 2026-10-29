@@ -16,6 +16,8 @@ denselben Ablauf wahlweise mit realer oder simulierter Hardware ausführen.
 - Tests und Projektdokumentation
 - reservierte V1-Hotkeys: `Strg+I/T/K/H/A`
 - erste klassische GUI mit fester XYZ-Draufsicht
+- berechnete Simulationstransformation mit Qualitätsprüfung
+- kompakte Punktliste und Punktdetailviewer
 
 Die echte Hardware wird erst in einer folgenden, separat prüfbaren Ausbaustufe
 angeschlossen. Der aktuelle Stand sendet keine Befehle an reale Geräte.

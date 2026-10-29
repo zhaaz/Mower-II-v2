@@ -11,7 +11,8 @@
   "simulation": {
     "random_seed": 1,
     "tracker_noise_mm": 0.02,
-    "movement_time_scale": 0.0
+    "movement_time_scale": 0.0,
+    "true_yaw_deg": 12.0
   },
   "xyz": {
     "workspace_min_mm": [0.0, 0.0, 150.0],
@@ -23,6 +24,22 @@
     "footprint_min_xy_mm": [-50.0, -50.0],
     "footprint_max_xy_mm": [550.0, 450.0],
     "front_direction": "+X"
+  },
+  "marker": {
+    "z_mark_mm": 165.9
+  },
+  "transformation": {
+    "calibration_points_mm": [
+      [100.0, 100.0, 170.0],
+      [400.0, 100.0, 170.0],
+      [400.0, 300.0, 170.0],
+      [100.0, 300.0, 170.0],
+      [250.0, 200.0, 170.0]
+    ],
+    "good_rms_mm": 0.05,
+    "good_max_residual_mm": 0.10,
+    "accepted_rms_mm": 0.25,
+    "accepted_max_residual_mm": 0.50
   },
   "murata": {
     "baudrate": 115200,

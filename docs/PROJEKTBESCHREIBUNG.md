@@ -104,4 +104,5 @@ behandelt. Wiederherstellung reaktiviert weder Homing noch Transformation.
 | 29.10.2026 | 0.3 | Zoombare Projektansicht mit Tracker/Wagen und Referenzdaten |
 | 29.10.2026 | 0.4 | Wagengeometrie und verbindliche XYZ-Reichweitenprüfung |
 | 29.10.2026 | 0.5 | Wagenrichtung, Kartenverschiebung, Wagenzoom und Maßstabsbalken |
+| 29.10.2026 | 0.6 | Validierte Config, berechnete Simulationstransformation und Punktviewer |
 

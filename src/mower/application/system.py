@@ -50,6 +50,11 @@ class MowerSystem:
         self._require_initialized()
         self.transformation_valid = True
 
+    def invalidate_transformation(self) -> None:
+        self.transformation_valid = False
+        self.offset_calibrated = False
+        self.marker_height_calibrated = False
+
     def calibrate_offset(self) -> None:
         self._require_initialized()
         if not self.transformation_valid:
