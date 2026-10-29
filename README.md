@@ -39,5 +39,6 @@ Weitere Informationen:
 - [Architektur](docs/ARCHITEKTUR.md)
 - [Simulation](docs/SIMULATION.md)
 - [Punktimport](docs/PUNKTIMPORT.md)
+- [Mower Point Converter](docs/POINT_CONVERTER.md)
 - [Beispieldaten](examples/data/README.md)
 

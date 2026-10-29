@@ -15,6 +15,7 @@ dev = ["pytest>=8.0", "ruff>=0.8"]
 [project.scripts]
 mower-sim = "mower.simulation_demo:main"
 mower-gui = "mower.ui.app:main"
+mower-point-converter = "mower.tools.point_converter_app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
