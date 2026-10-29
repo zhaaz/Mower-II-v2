@@ -8,7 +8,7 @@ from mower.application import MowerSystem
 from mower.domain import Point3D, StakeoutPoint, WagonGeometry, WagonPose
 from mower.domain.point_file import load_points
 from mower.hardware.simulation import SimGyro, SimRotationMotor, SimTracker, SimXYZRobot
-from mower.ui.project_view import ProjectView
+from mower.ui.project_view import ProjectView, format_scale_length, nice_scale_length
 from mower.ui.xyz_top_view import Viewport, robot_to_screen, workspace_screen_bounds
 
 
@@ -39,6 +39,7 @@ class MowerApp(tk.Tk):
         self.project_view = ProjectView()
         self.project_view_fitted = False
         self.project_view_user_adjusted = False
+        self.project_pan_anchor: tuple[float, float] | None = None
         self.status_var = tk.StringVar(value="Simulation bereit – System noch nicht initialisiert")
         self.mode_var = tk.StringVar(value="SIMULATION")
         self.workflow_var = tk.StringVar(value="offline")
@@ -164,6 +165,9 @@ class MowerApp(tk.Tk):
             project_toolbar, text="Alles", width=7, command=self.fit_project_view
         ).pack(side="right", padx=(3, 0))
         ttk.Button(
+            project_toolbar, text="Wagen", width=7, command=self.fit_wagon_view
+        ).pack(side="right", padx=(3, 0))
+        ttk.Button(
             project_toolbar, text="−", width=3, command=lambda: self.zoom_project(1.0 / 1.25)
         ).pack(side="right", padx=(3, 0))
         ttk.Button(
@@ -176,6 +180,9 @@ class MowerApp(tk.Tk):
         self.project_canvas.bind("<MouseWheel>", self._on_project_mousewheel)
         self.project_canvas.bind("<Button-4>", self._on_project_mousewheel)
         self.project_canvas.bind("<Button-5>", self._on_project_mousewheel)
+        self.project_canvas.bind("<ButtonPress-1>", self._start_project_pan)
+        self.project_canvas.bind("<B1-Motion>", self._pan_project)
+        self.project_canvas.bind("<ButtonRelease-1>", self._stop_project_pan)
 
         status_box = tk.LabelFrame(right, text="Systemstatus", bg=self.PANEL, padx=10, pady=8)
         status_box.pack(fill="x", pady=(0, 8))
@@ -567,6 +574,31 @@ class MowerApp(tk.Tk):
             width=2,
             dash=(5, 3),
         )
+        center = geometry.center_local
+        arrow_start = self.wagon_pose.local_to_project(center)
+        arrow_end = self.wagon_pose.local_to_project(
+            Point3D(center.x + 220.0, center.y, center.z)
+        )
+        start_x, start_y = self.project_view.world_to_screen(arrow_start, width, height)
+        end_x, end_y = self.project_view.world_to_screen(arrow_end, width, height)
+        canvas.create_line(
+            start_x,
+            start_y,
+            end_x,
+            end_y,
+            fill="#c62828",
+            width=4,
+            arrow="last",
+            arrowshape=(12, 14, 6),
+        )
+        canvas.create_text(
+            end_x,
+            end_y - 8,
+            text="vorne (+X)",
+            anchor="s",
+            fill="#a51f1f",
+            font=("Segoe UI", 9, "bold"),
+        )
 
     def _project_positions(self) -> list[Point3D]:
         positions = [point.target for point in self.points]
@@ -584,6 +616,25 @@ class MowerApp(tk.Tk):
         height = max(self.project_canvas.winfo_height(), 100)
         self._fit_project_view(width, height)
         self.project_view_user_adjusted = False
+        self._draw_project()
+
+    def fit_wagon_view(self) -> None:
+        if self.wagon_pose is None:
+            return
+        width = max(self.project_canvas.winfo_width(), 100)
+        height = max(self.project_canvas.winfo_height(), 100)
+        geometry = self.wagon_geometry
+        corners = self.wagon_pose.polygon_to_project(
+            [
+                Point3D(geometry.footprint_min_x, geometry.footprint_min_y, 0.0),
+                Point3D(geometry.footprint_max_x, geometry.footprint_min_y, 0.0),
+                Point3D(geometry.footprint_max_x, geometry.footprint_max_y, 0.0),
+                Point3D(geometry.footprint_min_x, geometry.footprint_max_y, 0.0),
+            ]
+        )
+        self.project_view.fit(corners, width, height, padding=70.0)
+        self.project_view_fitted = True
+        self.project_view_user_adjusted = True
         self._draw_project()
 
     def zoom_project(
@@ -624,6 +675,28 @@ class MowerApp(tk.Tk):
         self.zoom_project(factor, float(event.x), float(event.y))
         return "break"
 
+    def _start_project_pan(self, event: tk.Event[tk.Misc]) -> str:
+        self.project_pan_anchor = (float(event.x), float(event.y))
+        self.project_canvas.configure(cursor="fleur")
+        return "break"
+
+    def _pan_project(self, event: tk.Event[tk.Misc]) -> str:
+        current = (float(event.x), float(event.y))
+        if self.project_pan_anchor is not None:
+            delta_x = current[0] - self.project_pan_anchor[0]
+            delta_y = current[1] - self.project_pan_anchor[1]
+            self.project_view.pan_pixels(delta_x, delta_y)
+            self.project_pan_anchor = current
+            self.project_view_fitted = True
+            self.project_view_user_adjusted = True
+            self._draw_project()
+        return "break"
+
+    def _stop_project_pan(self, _event: tk.Event[tk.Misc]) -> str:
+        self.project_pan_anchor = None
+        self.project_canvas.configure(cursor="")
+        return "break"
+
     def _draw_project_grid(self, canvas: tk.Canvas, width: float, height: float) -> None:
         origin_x, origin_y = self.project_view.world_to_screen(
             Point3D(0.0, 0.0, 0.0), width, height
@@ -632,12 +705,28 @@ class MowerApp(tk.Tk):
             canvas.create_line(origin_x, 0, origin_x, height, fill="#d0d0d0", dash=(3, 3))
         if 0.0 <= origin_y <= height:
             canvas.create_line(0, origin_y, width, origin_y, fill="#d0d0d0", dash=(3, 3))
+        self._draw_scale_bar(canvas, width, height)
+
+    def _draw_scale_bar(self, canvas: tk.Canvas, width: float, height: float) -> None:
+        length_mm = nice_scale_length(self.project_view.scale)
+        length_pixels = length_mm * self.project_view.scale
+        x1 = 18.0
+        x2 = min(x1 + length_pixels, width - 18.0)
+        y = height - 22.0
+        canvas.create_rectangle(
+            x1 - 8, y - 24, x2 + 8, y + 12,
+            fill="#eeeeee", outline="",
+        )
+        canvas.create_line(x1, y, x2, y, fill="#222222", width=3)
+        canvas.create_line(x1, y - 6, x1, y + 6, fill="#222222", width=2)
+        canvas.create_line(x2, y - 6, x2, y + 6, fill="#222222", width=2)
         canvas.create_text(
-            10,
-            height - 10,
-            text=f"Maßstab: {self.project_view.scale:.4f} px/mm",
-            anchor="sw",
-            fill="#666666",
+            (x1 + x2) / 2.0,
+            y - 8,
+            text=format_scale_length(length_mm),
+            anchor="s",
+            fill="#222222",
+            font=("Segoe UI", 9, "bold"),
         )
 
 

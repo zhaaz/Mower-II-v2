@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from typing import Iterable
 
 from mower.domain import Point3D
@@ -73,3 +74,35 @@ class ProjectView:
         anchor_after = self.screen_to_world(screen_x, screen_y, width, height)
         self.center_x += anchor_before.x - anchor_after.x
         self.center_y += anchor_before.y - anchor_after.y
+
+    def pan_pixels(self, delta_x: float, delta_y: float) -> None:
+        """Verschiebt die Karte in Bewegungsrichtung der Maus."""
+        self.center_x -= delta_x / self.scale
+        self.center_y += delta_y / self.scale
+
+
+def nice_scale_length(scale_px_per_mm: float, target_pixels: float = 110.0) -> float:
+    """Wählt eine gut lesbare Maßstabslänge in Millimeter (1/2/5-Schritte)."""
+    if scale_px_per_mm <= 0.0:
+        raise ValueError("Maßstab muss positiv sein")
+    raw_mm = target_pixels / scale_px_per_mm
+    exponent = math.floor(math.log10(raw_mm))
+    base = 10.0 ** exponent
+    normalized = raw_mm / base
+    if normalized < 1.5:
+        nice = 1.0
+    elif normalized < 3.5:
+        nice = 2.0
+    elif normalized < 7.5:
+        nice = 5.0
+    else:
+        nice = 10.0
+    return nice * base
+
+
+def format_scale_length(length_mm: float) -> str:
+    if length_mm >= 1000.0:
+        return f"{length_mm / 1000.0:g} m"
+    if length_mm >= 100.0:
+        return f"{length_mm / 10.0:g} cm"
+    return f"{length_mm:g} mm"

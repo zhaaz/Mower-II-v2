@@ -21,7 +21,8 @@
   "wagon": {
     "footprint_mm": [600.0, 500.0],
     "footprint_min_xy_mm": [-50.0, -50.0],
-    "footprint_max_xy_mm": [550.0, 450.0]
+    "footprint_max_xy_mm": [550.0, 450.0],
+    "front_direction": "+X"
   },
   "murata": {
     "baudrate": 115200,

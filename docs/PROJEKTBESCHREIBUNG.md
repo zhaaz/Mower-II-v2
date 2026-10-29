@@ -103,4 +103,5 @@ behandelt. Wiederherstellung reaktiviert weder Homing noch Transformation.
 | 28.10.2026 | 0.2 | Klassische Simulations-GUI, Ablaufzustände und XYZ-Draufsicht |
 | 29.10.2026 | 0.3 | Zoombare Projektansicht mit Tracker/Wagen und Referenzdaten |
 | 29.10.2026 | 0.4 | Wagengeometrie und verbindliche XYZ-Reichweitenprüfung |
+| 29.10.2026 | 0.5 | Wagenrichtung, Kartenverschiebung, Wagenzoom und Maßstabsbalken |
 

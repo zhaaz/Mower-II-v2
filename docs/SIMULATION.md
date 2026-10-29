@@ -40,3 +40,9 @@ Nur Punkte, deren transformierte lokale Koordinate innerhalb dieser Grenzen
 liegt, werden als erreichbar freigegeben. Im Simulationsmenü kann der Wagen
 auf den ausgewählten Punkt versetzt werden.
 
+Ein roter Richtungspfeil kennzeichnet die Vorderseite des Wagens in lokaler
++X-Richtung. Die Karte lässt sich mit gedrückter linker Maustaste verschieben.
+Der Button `Wagen` zoomt auf Wagen und Arbeitsraum. Ein dynamischer
+Maßstabsbalken verwendet abhängig von der Zoomstufe Millimeter, Zentimeter
+oder Meter.
+
