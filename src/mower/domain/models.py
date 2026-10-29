@@ -26,6 +26,7 @@ class StakeoutPoint:
     marker_code: int = 1
     remark: str = ""
     marking_state: MarkingState = MarkingState.OPEN
+    reachable: bool = False
 
     @property
     def marker_shape(self) -> str:

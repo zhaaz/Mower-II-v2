@@ -12,8 +12,8 @@ class SimulationError(RuntimeError):
 
 @dataclass(slots=True)
 class SimXYZRobot:
-    workspace_min: Point3D = Point3D(-500.0, -500.0, -250.0)
-    workspace_max: Point3D = Point3D(500.0, 500.0, 50.0)
+    workspace_min: Point3D = Point3D(0.0, 0.0, 150.0)
+    workspace_max: Point3D = Point3D(500.0, 400.0, 200.0)
     _position: Point3D = Point3D(0.0, 0.0, 0.0)
     connected: bool = False
     homed: bool = False
@@ -29,7 +29,11 @@ class SimXYZRobot:
 
     def home(self) -> None:
         self._require_connected()
-        self._position = Point3D(0.0, 0.0, 0.0)
+        self._position = Point3D(
+            self.workspace_min.x,
+            self.workspace_min.y,
+            self.workspace_max.z,
+        )
         self.homed = True
 
     def move_to(self, target: Point3D) -> None:

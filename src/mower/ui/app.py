@@ -5,7 +5,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from mower.application import MowerSystem
-from mower.domain import Point3D, StakeoutPoint
+from mower.domain import Point3D, StakeoutPoint, WagonGeometry, WagonPose
 from mower.domain.point_file import load_points
 from mower.hardware.simulation import SimGyro, SimRotationMotor, SimTracker, SimXYZRobot
 from mower.ui.project_view import ProjectView
@@ -34,6 +34,8 @@ class MowerApp(tk.Tk):
         self.target_position: Point3D | None = None
         self.tracker_station = Point3D(0.0, 0.0, 0.0)
         self.robot_project_position: Point3D | None = None
+        self.wagon_geometry = WagonGeometry()
+        self.wagon_pose: WagonPose | None = None
         self.project_view = ProjectView()
         self.project_view_fitted = False
         self.project_view_user_adjusted = False
@@ -91,6 +93,11 @@ class MowerApp(tk.Tk):
         menu.add_cascade(label="Arbeitsablauf", menu=workflow_menu)
 
         simulation_menu = tk.Menu(menu, tearoff=False)
+        simulation_menu.add_command(
+            label="Wagen auf gewählten Punkt setzen",
+            command=self.place_wagon_at_selected,
+        )
+        simulation_menu.add_separator()
         simulation_menu.add_command(label="XYZ zur Mitte", command=self.move_center)
         simulation_menu.add_command(label="XYZ-Not-Halt testen", command=self.emergency_stop)
         menu.add_cascade(label="Simulation", menu=simulation_menu)
@@ -242,11 +249,8 @@ class MowerApp(tk.Tk):
             return
         self._populate_points()
         if self.points:
-            self.robot_project_position = Point3D(
-                sum(point.target.x for point in self.points) / len(self.points),
-                sum(point.target.y for point in self.points) / len(self.points),
-                sum(point.target.z for point in self.points) / len(self.points),
-            )
+            self._place_wagon_center(self.points[0].target)
+            self._update_reachability()
         self.project_view_fitted = False
         self.project_view_user_adjusted = False
         self.fit_project_view()
@@ -278,11 +282,17 @@ class MowerApp(tk.Tk):
         index = int(selected[0])
         point = self.points[index]
         robot_target = self._project_to_robot(point)
+        if not point.reachable:
+            messagebox.showwarning(
+                "Absteckung",
+                f"Punkt {point.name} liegt außerhalb des XYZ-Arbeitsraums.",
+                parent=self,
+            )
+            return
 
         def action() -> None:
             self.target_position = robot_target
             self.system.move_robot(robot_target)
-            self.robot_project_position = point.target
             point.marking_state = point.marking_state.COMPLETE
 
         self._run(f"Punkt {point.name} simuliert abgesteckt", action)
@@ -290,8 +300,24 @@ class MowerApp(tk.Tk):
         self._draw_project()
 
     def move_center(self) -> None:
-        self.target_position = Point3D(0.0, 0.0, -20.0)
+        self.target_position = Point3D(250.0, 200.0, 170.0)
         self._run("XYZ zur Arbeitsraummitte bewegt", lambda: self.system.move_robot(self.target_position))
+
+    def place_wagon_at_selected(self) -> None:
+        selected = self.point_tree.selection()
+        if not selected:
+            messagebox.showinfo(
+                "Simulation",
+                "Bitte zuerst einen Punkt auswählen.",
+                parent=self,
+            )
+            return
+        point = self.points[int(selected[0])]
+        self._place_wagon_center(point.target)
+        self._update_reachability()
+        self._populate_points(select=int(selected[0]))
+        self._draw_project()
+        self.status_var.set(f"Simulierter Wagen auf Punkt {point.name} positioniert")
 
     def emergency_stop(self) -> None:
         self.system.xyz.emergency_stop()
@@ -308,14 +334,36 @@ class MowerApp(tk.Tk):
             self.status_var.set(success)
         self._refresh()
 
-    @staticmethod
-    def _project_to_robot(point: StakeoutPoint) -> Point3D:
-        # Vorläufige Simulationsabbildung bis die virtuelle Transformation folgt.
-        return Point3D(
-            max(-450.0, min(450.0, point.target.x % 900.0 - 450.0)),
-            max(-450.0, min(450.0, point.target.y % 900.0 - 450.0)),
-            -20.0,
+    def _project_to_robot(self, point: StakeoutPoint) -> Point3D:
+        if self.wagon_pose is None:
+            raise RuntimeError("Wagenpose ist noch nicht bekannt")
+        return self.wagon_pose.project_to_local(
+            point.target,
+            local_z=self.wagon_geometry.marking_z_mm,
         )
+
+    def _place_wagon_center(self, center_project: Point3D) -> None:
+        yaw_deg = self.system.gyro.angle_deg
+        center = self.wagon_geometry.center_local
+        center_offset = WagonPose(Point3D(0.0, 0.0, 0.0), yaw_deg).local_to_project(center)
+        origin = Point3D(
+            center_project.x - center_offset.x,
+            center_project.y - center_offset.y,
+            0.0,
+        )
+        self.wagon_pose = WagonPose(origin, yaw_deg)
+        self.robot_project_position = Point3D(center_project.x, center_project.y, center_project.z)
+
+    def _update_reachability(self) -> None:
+        for point in self.points:
+            if self.wagon_pose is None:
+                point.reachable = False
+                continue
+            local = self.wagon_pose.project_to_local(
+                point.target,
+                local_z=self.wagon_geometry.marking_z_mm,
+            )
+            point.reachable = self.wagon_geometry.workspace.contains(local)
 
     def _populate_points(self, select: int | None = None) -> None:
         self.point_tree.delete(*self.point_tree.get_children())
@@ -324,7 +372,7 @@ class MowerApp(tk.Tk):
                 "", "end", iid=str(index), text=point.name,
                 values=(
                     f"{point.target.x:.3f}", f"{point.target.y:.3f}",
-                    f"{point.target.z:.3f}", point.marking_state.value,
+                    f"{point.target.z:.3f}", self._point_status(point),
                 ),
             )
         if select is not None and str(select) in self.point_tree.get_children():
@@ -336,6 +384,12 @@ class MowerApp(tk.Tk):
             self.target_position = self._project_to_robot(self.points[int(selected[0])])
         self._draw_xyz()
         self._draw_project()
+
+    @staticmethod
+    def _point_status(point: StakeoutPoint) -> str:
+        if point.marking_state.value == "complete":
+            return "markiert"
+        return "erreichbar" if point.reachable else "außer Reichw."
 
     def _refresh(self) -> None:
         position = self.system.xyz.position
@@ -406,11 +460,17 @@ class MowerApp(tk.Tk):
             self._fit_project_view(width, height)
 
         self._draw_project_grid(canvas, width, height)
+        self._draw_wagon_and_workspace(canvas, width, height)
         selected = self.point_tree.selection()
         selected_index = int(selected[0]) if selected else None
         for index, point in enumerate(self.points):
             x, y = self.project_view.world_to_screen(point.target, width, height)
-            color = "#8a8a8a" if point.marking_state.value == "complete" else self.BLUE
+            if point.marking_state.value == "complete":
+                color = "#8a8a8a"
+            elif point.reachable:
+                color = self.GREEN
+            else:
+                color = self.BLUE
             radius = 7 if index == selected_index else 5
             canvas.create_oval(x - radius, y - radius, x + radius, y + radius, fill=color, outline="white")
             canvas.create_text(x + 8, y - 7, text=point.name, anchor="sw", fill="#222222")
@@ -464,6 +524,49 @@ class MowerApp(tk.Tk):
                 fill="#176b2a",
                 font=("Segoe UI", 9, "bold"),
             )
+
+    def _draw_wagon_and_workspace(
+        self,
+        canvas: tk.Canvas,
+        width: float,
+        height: float,
+    ) -> None:
+        if self.wagon_pose is None:
+            return
+        geometry = self.wagon_geometry
+        footprint_local = [
+            Point3D(geometry.footprint_min_x, geometry.footprint_min_y, 0.0),
+            Point3D(geometry.footprint_max_x, geometry.footprint_min_y, 0.0),
+            Point3D(geometry.footprint_max_x, geometry.footprint_max_y, 0.0),
+            Point3D(geometry.footprint_min_x, geometry.footprint_max_y, 0.0),
+        ]
+        workspace = geometry.workspace
+        workspace_local = [
+            Point3D(workspace.minimum.x, workspace.minimum.y, 0.0),
+            Point3D(workspace.maximum.x, workspace.minimum.y, 0.0),
+            Point3D(workspace.maximum.x, workspace.maximum.y, 0.0),
+            Point3D(workspace.minimum.x, workspace.maximum.y, 0.0),
+        ]
+        footprint_screen: list[float] = []
+        for point in self.wagon_pose.polygon_to_project(footprint_local):
+            footprint_screen.extend(self.project_view.world_to_screen(point, width, height))
+        workspace_screen: list[float] = []
+        for point in self.wagon_pose.polygon_to_project(workspace_local):
+            workspace_screen.extend(self.project_view.world_to_screen(point, width, height))
+        canvas.create_polygon(
+            *footprint_screen,
+            fill="#e8e8e8",
+            outline="#555555",
+            width=2,
+            stipple="gray25",
+        )
+        canvas.create_polygon(
+            *workspace_screen,
+            fill="",
+            outline="#0086a8",
+            width=2,
+            dash=(5, 3),
+        )
 
     def _project_positions(self) -> list[Point3D]:
         positions = [point.target for point in self.points]

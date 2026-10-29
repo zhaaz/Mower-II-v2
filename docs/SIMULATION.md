@@ -34,3 +34,9 @@ Wagenposition. Sie kann über Mausrad sowie die Schaltflächen `+`, `−` und
 `Alles` gezoomt werden. Beim Mausradzoom bleibt die Position unter dem
 Mauszeiger erhalten.
 
+Der Wagen wird mit 600 × 500 mm dargestellt. Der darin liegende XYZ-Arbeitsraum
+beträgt X=0…500 mm und Y=0…400 mm; die Z-Grenzen liegen bei 150…200 mm.
+Nur Punkte, deren transformierte lokale Koordinate innerhalb dieser Grenzen
+liegt, werden als erreichbar freigegeben. Im Simulationsmenü kann der Wagen
+auf den ausgewählten Punkt versetzt werden.
+
