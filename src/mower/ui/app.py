@@ -8,7 +8,7 @@ from mower.application import MowerSystem
 from mower.domain import Point3D, StakeoutPoint
 from mower.domain.point_file import load_points
 from mower.hardware.simulation import SimGyro, SimRotationMotor, SimTracker, SimXYZRobot
-from mower.ui.xyz_top_view import Viewport, robot_to_screen
+from mower.ui.xyz_top_view import Viewport, robot_to_screen, workspace_screen_bounds
 
 
 class MowerApp(tk.Tk):
@@ -22,8 +22,8 @@ class MowerApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("Mower II v2 – SIMULATION")
-        self.geometry("1450x860")
         self.minsize(1120, 700)
+        self._set_initial_geometry()
         self.configure(background=self.BG)
 
         self.system = MowerSystem(
@@ -42,6 +42,16 @@ class MowerApp(tk.Tk):
         self._bind_hotkeys()
         self.protocol("WM_DELETE_WINDOW", self.destroy)
         self.after(100, self._refresh)
+
+    def _set_initial_geometry(self) -> None:
+        """Öffnet das Fenster reproduzierbar und vollständig auf dem Bildschirm."""
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        width = min(1500, max(1120, screen_width - 80))
+        height = min(880, max(700, screen_height - 120))
+        x = max(0, (screen_width - width) // 2)
+        y = max(0, (screen_height - height) // 2)
+        self.geometry(f"{width}x{height}+{x}+{y}")
 
     def _configure_style(self) -> None:
         style = ttk.Style(self)
@@ -102,15 +112,16 @@ class MowerApp(tk.Tk):
         for text, command in buttons:
             ttk.Button(toolbar, text=text, command=command).pack(side="left", padx=(0, 6))
 
-        body = tk.PanedWindow(self, orient="horizontal", sashwidth=5, bg=self.BG)
-        body.pack(fill="both", expand=True, padx=8, pady=4)
+        self.body = tk.PanedWindow(self, orient="horizontal", sashwidth=5, bg=self.BG)
+        self.body.pack(fill="both", expand=True, padx=8, pady=4)
 
         left = tk.LabelFrame(body, text="Absteckpunkte", bg=self.PANEL, padx=5, pady=5)
         center = tk.LabelFrame(body, text="Projektansicht", bg=self.PANEL, padx=5, pady=5)
         right = tk.Frame(body, bg=self.BG)
-        body.add(left, minsize=300, width=340)
-        body.add(center, minsize=450)
-        body.add(right, minsize=320, width=350)
+        self.body.add(left, minsize=220)
+        self.body.add(center, minsize=450)
+        self.body.add(right, minsize=220)
+        self.after_idle(self._set_initial_pane_widths)
 
         columns = ("x", "y", "z", "status")
         self.point_tree = ttk.Treeview(left, columns=columns, show="tree headings")
@@ -151,6 +162,16 @@ class MowerApp(tk.Tk):
             relief="sunken", bd=1, padx=8, pady=5, font=("Segoe UI", 9)
         )
         footer.pack(fill="x", padx=8, pady=(4, 8))
+
+    def _set_initial_pane_widths(self) -> None:
+        """Setzt die Hauptbereiche nach dem ersten Tk-Layout auf etwa 1:3:1."""
+        self.update_idletasks()
+        width = self.body.winfo_width()
+        if width <= 1:
+            self.after(50, self._set_initial_pane_widths)
+            return
+        self.body.sash_place(0, round(width * 0.20), 1)
+        self.body.sash_place(1, round(width * 0.80), 1)
 
     def _status_row(self, parent: tk.Widget, label: str, variable: tk.StringVar) -> None:
         row = tk.Frame(parent, bg=self.PANEL)
@@ -290,8 +311,7 @@ class MowerApp(tk.Tk):
         xyz = self.system.xyz
         minimum, maximum = xyz.workspace_min, xyz.workspace_max
 
-        left, top = viewport.padding, viewport.padding
-        right, bottom = width - viewport.padding, height - viewport.padding
+        left, top, right, bottom = workspace_screen_bounds(minimum, maximum, viewport)
         canvas.create_rectangle(left, top, right, bottom, fill="#eef7fa", outline="#44879a", width=2)
 
         origin = robot_to_screen(Point3D(0.0, 0.0, 0.0), minimum, maximum, viewport)
