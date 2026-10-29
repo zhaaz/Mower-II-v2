@@ -8,6 +8,7 @@ from mower.application import MowerSystem
 from mower.domain import Point3D, StakeoutPoint
 from mower.domain.point_file import load_points
 from mower.hardware.simulation import SimGyro, SimRotationMotor, SimTracker, SimXYZRobot
+from mower.ui.project_view import ProjectView
 from mower.ui.xyz_top_view import Viewport, robot_to_screen, workspace_screen_bounds
 
 
@@ -31,10 +32,17 @@ class MowerApp(tk.Tk):
         )
         self.points: list[StakeoutPoint] = []
         self.target_position: Point3D | None = None
+        self.tracker_station = Point3D(0.0, 0.0, 0.0)
+        self.robot_project_position: Point3D | None = None
+        self.project_view = ProjectView()
+        self.project_view_fitted = False
+        self.project_view_user_adjusted = False
         self.status_var = tk.StringVar(value="Simulation bereit – System noch nicht initialisiert")
         self.mode_var = tk.StringVar(value="SIMULATION")
         self.workflow_var = tk.StringVar(value="offline")
         self.xyz_var = tk.StringVar(value="X 0.0   Y 0.0   Z 0.0 mm")
+        self.tracker_var = tk.StringVar(value="X 0.0   Y 0.0 mm")
+        self.robot_var = tk.StringVar(value="noch unbekannt")
 
         self._configure_style()
         self._build_menu()
@@ -137,15 +145,38 @@ class MowerApp(tk.Tk):
         self.point_tree.pack(fill="both", expand=True)
         self.point_tree.bind("<<TreeviewSelect>>", self._select_point)
 
+        project_toolbar = tk.Frame(center, bg=self.PANEL)
+        project_toolbar.pack(fill="x", pady=(0, 4))
+        tk.Label(
+            project_toolbar,
+            text="Projektkoordinaten",
+            bg=self.PANEL,
+            fg="#555555",
+        ).pack(side="left", padx=4)
+        ttk.Button(
+            project_toolbar, text="Alles", width=7, command=self.fit_project_view
+        ).pack(side="right", padx=(3, 0))
+        ttk.Button(
+            project_toolbar, text="−", width=3, command=lambda: self.zoom_project(1.0 / 1.25)
+        ).pack(side="right", padx=(3, 0))
+        ttk.Button(
+            project_toolbar, text="+", width=3, command=lambda: self.zoom_project(1.25)
+        ).pack(side="right")
+
         self.project_canvas = tk.Canvas(center, bg="#eeeeee", highlightthickness=0)
         self.project_canvas.pack(fill="both", expand=True)
-        self.project_canvas.bind("<Configure>", lambda _event: self._draw_project())
+        self.project_canvas.bind("<Configure>", self._on_project_configure)
+        self.project_canvas.bind("<MouseWheel>", self._on_project_mousewheel)
+        self.project_canvas.bind("<Button-4>", self._on_project_mousewheel)
+        self.project_canvas.bind("<Button-5>", self._on_project_mousewheel)
 
         status_box = tk.LabelFrame(right, text="Systemstatus", bg=self.PANEL, padx=10, pady=8)
         status_box.pack(fill="x", pady=(0, 8))
         self._status_row(status_box, "Modus", self.mode_var)
         self._status_row(status_box, "Ablauf", self.workflow_var)
         self._status_row(status_box, "XYZ", self.xyz_var)
+        self._status_row(status_box, "Tracker", self.tracker_var)
+        self._status_row(status_box, "Wagen", self.robot_var)
 
         robot_box = tk.LabelFrame(
             right, text="XYZ-Roboter – Draufsicht", bg=self.PANEL, padx=5, pady=5
@@ -210,7 +241,15 @@ class MowerApp(tk.Tk):
             messagebox.showerror("Punktimport", str(exc), parent=self)
             return
         self._populate_points()
-        self._draw_project()
+        if self.points:
+            self.robot_project_position = Point3D(
+                sum(point.target.x for point in self.points) / len(self.points),
+                sum(point.target.y for point in self.points) / len(self.points),
+                sum(point.target.z for point in self.points) / len(self.points),
+            )
+        self.project_view_fitted = False
+        self.project_view_user_adjusted = False
+        self.fit_project_view()
         self.status_var.set(f"{len(self.points)} Punkte geladen: {Path(path).name}")
 
     def initialize(self) -> None:
@@ -243,10 +282,12 @@ class MowerApp(tk.Tk):
         def action() -> None:
             self.target_position = robot_target
             self.system.move_robot(robot_target)
+            self.robot_project_position = point.target
             point.marking_state = point.marking_state.COMPLETE
 
         self._run(f"Punkt {point.name} simuliert abgesteckt", action)
         self._populate_points(select=index)
+        self._draw_project()
 
     def move_center(self) -> None:
         self.target_position = Point3D(0.0, 0.0, -20.0)
@@ -300,6 +341,16 @@ class MowerApp(tk.Tk):
         position = self.system.xyz.position
         self.workflow_var.set(self.system.workflow_state.value)
         self.xyz_var.set(f"X {position.x:.1f}   Y {position.y:.1f}   Z {position.z:.1f} mm")
+        self.tracker_var.set(
+            f"X {self.tracker_station.x:.1f}   Y {self.tracker_station.y:.1f} mm"
+        )
+        if self.robot_project_position is None:
+            self.robot_var.set("noch unbekannt")
+        else:
+            self.robot_var.set(
+                f"X {self.robot_project_position.x:.1f}   "
+                f"Y {self.robot_project_position.y:.1f} mm"
+            )
         self._draw_xyz()
 
     def _draw_xyz(self) -> None:
@@ -351,22 +402,140 @@ class MowerApp(tk.Tk):
                 justify="center", fill="#666666", font=("Segoe UI", 11)
             )
             return
-        xs = [point.target.x for point in self.points]
-        ys = [point.target.y for point in self.points]
-        x_min, x_max = min(xs), max(xs)
-        y_min, y_max = min(ys), max(ys)
-        x_span = max(x_max - x_min, 1.0)
-        y_span = max(y_max - y_min, 1.0)
-        padding = 35.0
+        if not self.project_view_fitted:
+            self._fit_project_view(width, height)
+
+        self._draw_project_grid(canvas, width, height)
         selected = self.point_tree.selection()
         selected_index = int(selected[0]) if selected else None
         for index, point in enumerate(self.points):
-            x = padding + (point.target.x - x_min) / x_span * (width - 2 * padding)
-            y = height - padding - (point.target.y - y_min) / y_span * (height - 2 * padding)
+            x, y = self.project_view.world_to_screen(point.target, width, height)
             color = "#8a8a8a" if point.marking_state.value == "complete" else self.BLUE
             radius = 7 if index == selected_index else 5
             canvas.create_oval(x - radius, y - radius, x + radius, y + radius, fill=color, outline="white")
             canvas.create_text(x + 8, y - 7, text=point.name, anchor="sw", fill="#222222")
+
+        tracker_x, tracker_y = self.project_view.world_to_screen(
+            self.tracker_station, width, height
+        )
+        canvas.create_oval(
+            tracker_x - 9,
+            tracker_y - 9,
+            tracker_x + 9,
+            tracker_y + 9,
+            outline="#f57c00",
+            width=2,
+        )
+        canvas.create_line(
+            tracker_x - 13, tracker_y, tracker_x + 13, tracker_y, fill="#f57c00", width=2
+        )
+        canvas.create_line(
+            tracker_x, tracker_y - 13, tracker_x, tracker_y + 13, fill="#f57c00", width=2
+        )
+        canvas.create_text(
+            tracker_x + 11,
+            tracker_y - 11,
+            text="Lasertracker",
+            anchor="sw",
+            fill="#c45d00",
+            font=("Segoe UI", 9, "bold"),
+        )
+
+        if self.robot_project_position is not None:
+            robot_x, robot_y = self.project_view.world_to_screen(
+                self.robot_project_position, width, height
+            )
+            canvas.create_polygon(
+                robot_x,
+                robot_y - 11,
+                robot_x + 10,
+                robot_y + 9,
+                robot_x - 10,
+                robot_y + 9,
+                fill=self.GREEN,
+                outline="white",
+                width=2,
+            )
+            canvas.create_text(
+                robot_x + 12,
+                robot_y + 7,
+                text="Wagen (sim.)",
+                anchor="nw",
+                fill="#176b2a",
+                font=("Segoe UI", 9, "bold"),
+            )
+
+    def _project_positions(self) -> list[Point3D]:
+        positions = [point.target for point in self.points]
+        positions.append(self.tracker_station)
+        if self.robot_project_position is not None:
+            positions.append(self.robot_project_position)
+        return positions
+
+    def _fit_project_view(self, width: float, height: float) -> None:
+        self.project_view.fit(self._project_positions(), width, height)
+        self.project_view_fitted = True
+
+    def fit_project_view(self) -> None:
+        width = max(self.project_canvas.winfo_width(), 100)
+        height = max(self.project_canvas.winfo_height(), 100)
+        self._fit_project_view(width, height)
+        self.project_view_user_adjusted = False
+        self._draw_project()
+
+    def zoom_project(
+        self,
+        factor: float,
+        screen_x: float | None = None,
+        screen_y: float | None = None,
+    ) -> None:
+        if not self.points:
+            return
+        width = max(self.project_canvas.winfo_width(), 100)
+        height = max(self.project_canvas.winfo_height(), 100)
+        self.project_view.zoom_at(
+            factor,
+            width / 2.0 if screen_x is None else screen_x,
+            height / 2.0 if screen_y is None else screen_y,
+            width,
+            height,
+        )
+        self.project_view_fitted = True
+        self.project_view_user_adjusted = True
+        self._draw_project()
+
+    def _on_project_configure(self, _event: tk.Event[tk.Misc]) -> None:
+        if self.points and not self.project_view_user_adjusted:
+            width = max(self.project_canvas.winfo_width(), 100)
+            height = max(self.project_canvas.winfo_height(), 100)
+            self._fit_project_view(width, height)
+        self._draw_project()
+
+    def _on_project_mousewheel(self, event: tk.Event[tk.Misc]) -> str:
+        if getattr(event, "num", None) == 4:
+            factor = 1.25
+        elif getattr(event, "num", None) == 5:
+            factor = 1.0 / 1.25
+        else:
+            factor = 1.25 if getattr(event, "delta", 0) > 0 else 1.0 / 1.25
+        self.zoom_project(factor, float(event.x), float(event.y))
+        return "break"
+
+    def _draw_project_grid(self, canvas: tk.Canvas, width: float, height: float) -> None:
+        origin_x, origin_y = self.project_view.world_to_screen(
+            Point3D(0.0, 0.0, 0.0), width, height
+        )
+        if 0.0 <= origin_x <= width:
+            canvas.create_line(origin_x, 0, origin_x, height, fill="#d0d0d0", dash=(3, 3))
+        if 0.0 <= origin_y <= height:
+            canvas.create_line(0, origin_y, width, origin_y, fill="#d0d0d0", dash=(3, 3))
+        canvas.create_text(
+            10,
+            height - 10,
+            text=f"Maßstab: {self.project_view.scale:.4f} px/mm",
+            anchor="sw",
+            fill="#666666",
+        )
 
 
 def main() -> None:

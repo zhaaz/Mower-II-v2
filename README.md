@@ -36,4 +36,5 @@ Weitere Informationen:
 - [Projektbeschreibung](docs/PROJEKTBESCHREIBUNG.md)
 - [Architektur](docs/ARCHITEKTUR.md)
 - [Simulation](docs/SIMULATION.md)
+- [Beispieldaten](examples/data/README.md)
 

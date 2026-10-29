@@ -29,3 +29,8 @@ aktuelle XYZ-Position, das orange Fadenkreuz die ausgewählte Zielposition.
 X und Y werden mit demselben Maßstab dargestellt; die Arbeitsraumgrenzen
 stammen aus der Gerätekonfiguration.
 
+Die große Projektansicht zeigt Absteckpunkte, Lasertracker und die simulierte
+Wagenposition. Sie kann über Mausrad sowie die Schaltflächen `+`, `−` und
+`Alles` gezoomt werden. Beim Mausradzoom bleibt die Position unter dem
+Mauszeiger erhalten.
+

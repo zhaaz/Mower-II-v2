@@ -1,0 +1,91 @@
+Mower II - Projektexport
+================================================================================
+Exportiert am: 2026-10-28T10:39:20
+Projektdatei: C:\Users\Absteckung\Desktop\MowerOperator_v3\data\projekte\20261028_Test.mower.json
+Punkte: 12
+
+Projektstatus
+--------------------------------------------------------------------------------
+xyz_ready: True
+tracker_ready: True
+drehmotor_ready: True
+gyro_ready: True
+homing_done: True
+trafo_valid: False
+arn_active: True
+tracker_data_current: False
+tracker_station_xyz: 18673.990993, -10715.041492, 1338.157576
+current_lt_measurement_xyz: 41007.707200, -10619.179700, 9.977100
+
+Einstellungen Snapshot
+--------------------------------------------------------------------------------
+[xyz]
+x_min: 0.000000
+x_max: 500.000000
+y_min: 0.000000
+y_max: 400.000000
+z_min: 150.000000
+z_max: 200.000000
+default_feedrate: 3000.000000
+fast_feedrate: 6000.000000
+tolerance_mm: 0.050000
+home_z_before_transformation: True
+home_z_before_each_marking: True
+
+[tracker]
+udp_port: 10000
+capture_timeout_s: 30.000000
+ccr_radius_mm: 19.050000
+
+[marker]
+shape: plus
+size_mm: 80.000000
+angle_deg: 0.000000
+align_to_tracker_axes: True
+measure_after_marking: True
+z_mark_mm: 176.500000
+z_clear_mm: 181.500000
+z_travel_mm: 186.500000
+
+[transformation]
+marker_to_reflector_robot: -38.580978, -0.026181, 316.895434
+gyro_invalid_threshold_deg: 0.050000
+very_good_rms_mm: 0.050000
+very_good_max_residual_mm: 0.100000
+good_rms_mm: 0.100000
+good_max_residual_mm: 0.200000
+ok_rms_mm: 0.250000
+ok_max_residual_mm: 0.500000
+calibration_points: K1, 100.000000, 100.000000, K2, 100.000000, 350.000000, K3, 350.000000, 350.000000, K4, 400.000000, 100.000000, K5, 200.000000, 200.000000
+calibration_random_radius_mm: 50.000000
+minimum_required_measurements: 4
+min_geometry_rank: 2
+allow_scale: True
+max_scale_deviation: 0.000500
+
+[arn]
+kp: 4.000000
+max_speed_deg_s: 90.000000
+deadband_deg: 0.500000
+command_interval_ms: 100
+direction_sign: 1.000000
+
+[murata]
+default_drift_seconds: 10.000000
+direction_sign: 1.000000
+
+Punkte
+--------------------------------------------------------------------------------
+name;x;y;z;marked;marking_count;measured_after_marking;measured_marker_lt_x;measured_marker_lt_y;measured_marker_lt_z;measurement_dx;measurement_dy;measurement_dz;measurement_d2d;measurement_d3d;measurement_robot_z_mm;measurement_z_correction_mm;measurement_attempts;measurement_retry_threshold_mm;measurement_valid;measurement_warning;marker_shape;marker_code;remark
+1;41007.732913;-10619.040819;9.942616;True;1;True;41007.790476;-10618.986015;-10.491619;0.057563;0.054804;-20.434235;0.079479;20.434390;181.500000;0.000000;1;2.000000;True;;plus;1;
+2;41050.025045;-10756.263154;11.514529;True;1;True;41050.043676;-10756.228415;-9.497719;0.018631;0.034739;-21.012248;0.039419;21.012285;181.500000;0.000000;1;2.000000;True;;plus;1;
+3;34877.447785;-10707.015815;13.289350;True;1;True;34877.560056;-10707.055517;-5.701506;0.112271;-0.039702;-18.990856;0.119084;18.991230;181.500000;0.000000;1;2.000000;True;;plus;1;
+4;34746.264116;-10709.096909;13.689542;True;1;True;34746.278656;-10709.165117;-5.759506;0.014540;-0.068208;-19.449048;0.069740;19.449173;181.500000;0.000000;1;2.000000;True;;plus;1;
+5;29413.947450;-11058.920200;6.686960;True;1;True;29414.066541;-11058.949976;-14.331091;0.119091;-0.029776;-21.018051;0.122757;21.018409;181.500000;0.000000;1;2.000000;True;;plus;1;
+6;29395.461558;-11175.923664;6.777456;True;1;True;29395.571141;-11175.953976;-13.907191;0.109583;-0.030312;-20.684647;0.113698;20.684959;181.500000;0.000000;1;2.000000;True;;plus;1;
+7;24773.036110;-11073.444146;6.306016;True;1;True;24773.150085;-11073.430209;-13.659193;0.113975;0.013937;-19.965209;0.114824;19.965539;181.500000;0.000000;1;2.000000;True;;plus;1;
+8;24659.839200;-11044.339732;5.929740;True;1;True;24659.862385;-11044.404809;-13.371993;0.023185;-0.065077;-19.301733;0.069084;19.301857;181.500000;0.000000;1;2.000000;True;;plus;1;
+9;16267.951772;-10758.941759;9.018504;True;2;True;16267.982651;-10758.884601;-10.533413;0.030879;0.057158;-19.551917;0.064966;19.552025;181.500000;0.000000;1;2.000000;True;;plus;1;
+10;16375.367266;-10745.065498;9.514917;True;2;True;16375.386951;-10745.038101;-10.563513;0.019685;0.027397;-20.078430;0.033736;20.078459;181.500000;0.000000;1;2.000000;True;;plus;1;
+11;16374.410512;-9874.067105;8.866547;True;1;True;16374.448222;-9873.971021;-10.779739;0.037710;0.096084;-19.646286;0.103220;19.646557;181.500000;0.000000;1;2.000000;True;;plus;1;
+12;16496.985133;-9882.847645;9.475705;True;1;True;16497.019322;-9882.772821;-10.317639;0.034189;0.074824;-19.793344;0.082265;19.793515;181.500000;0.000000;1;2.000000;True;;plus;1;
