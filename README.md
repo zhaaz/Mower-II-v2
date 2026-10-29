@@ -8,7 +8,7 @@ denselben Ablauf wahlweise mit realer oder simulierter Hardware ausführen.
 
 ## Aktueller Stand
 
-- kompatibler Import des bestehenden Punktformats
+- flexibler Punktimport mit Vorschau, Trennzeichen und Spaltenzuordnung
 - typisierte Domänenmodelle und Geräteschnittstellen
 - deterministische Simulation für XYZ, Lasertracker, Murata und GYEMS
 - Simulations-Szenario inklusive Homing und Bewegung
@@ -38,5 +38,6 @@ Weitere Informationen:
 - [Projektbeschreibung](docs/PROJEKTBESCHREIBUNG.md)
 - [Architektur](docs/ARCHITEKTUR.md)
 - [Simulation](docs/SIMULATION.md)
+- [Punktimport](docs/PUNKTIMPORT.md)
 - [Beispieldaten](examples/data/README.md)
 

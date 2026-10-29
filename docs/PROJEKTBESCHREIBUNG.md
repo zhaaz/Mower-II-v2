@@ -105,4 +105,5 @@ behandelt. Wiederherstellung reaktiviert weder Homing noch Transformation.
 | 29.10.2026 | 0.4 | Wagengeometrie und verbindliche XYZ-Reichweitenprüfung |
 | 29.10.2026 | 0.5 | Wagenrichtung, Kartenverschiebung, Wagenzoom und Maßstabsbalken |
 | 29.10.2026 | 0.6 | Validierte Config, berechnete Simulationstransformation und Punktviewer |
+| 29.10.2026 | 0.7 | Flexibler Punktimport mit Vorschau und frei zuweisbaren Spalten |
 

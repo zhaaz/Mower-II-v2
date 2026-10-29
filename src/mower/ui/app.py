@@ -11,8 +11,8 @@ from mower.application.transformation import (
 )
 from mower.config import load_config
 from mower.domain import Point3D, StakeoutPoint, WagonGeometry, WagonPose
-from mower.domain.point_file import load_points
 from mower.hardware.simulation import SimGyro, SimRotationMotor, SimTracker, SimXYZRobot
+from mower.ui.point_import_dialog import show_point_import_dialog
 from mower.ui.project_view import ProjectView, format_scale_length, nice_scale_length
 from mower.ui.point_viewer import show_point_viewer
 from mower.ui.transformation_dialog import TransformationDialog
@@ -266,15 +266,21 @@ class MowerApp(tk.Tk):
     def open_points(self) -> None:
         path = filedialog.askopenfilename(
             parent=self, title="Punktdatei öffnen",
-            filetypes=[("Punktdateien", "*.txt"), ("Alle Dateien", "*.*")],
+            filetypes=[
+                ("Punkt- und Tabellendateien", "*.txt *.csv *.xyz *.dat"),
+                ("Alle Dateien", "*.*"),
+            ],
         )
         if not path:
             return
         try:
-            self.points = load_points(Path(path))
+            imported_points = show_point_import_dialog(self, path)
         except Exception as exc:
             messagebox.showerror("Punktimport", str(exc), parent=self)
             return
+        if imported_points is None:
+            return
+        self.points = imported_points
         self._populate_points()
         if self.points:
             self._place_simulation_true_wagon_center(self.points[0].target)
